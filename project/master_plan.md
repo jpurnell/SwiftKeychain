@@ -50,7 +50,7 @@ Sources/SwiftKeychain/
 
 - [x] Design proposal: `project/plans/proposals/2026-10-27_SwiftKeychain.md` (decisions §15, §17)
 - [x] Core: `KeychainAccess`, `KeychainItem`, `KeychainError`, `InMemoryKeychain`, `SystemKeychain`
-- [ ] `KeychainKey.loadOrCreate` (32-byte keys, never replaced if malformed)
+- [x] `KeychainKey.loadOrCreate` (32-byte keys, never replaced if malformed)
 - [ ] `KeychainTokenCache` (`CLIAuth`)
 - [ ] `KeychainClientStorage` (`OAuth`)
 - [ ] Gate and CI build with traits (quality-gate-swift `feat/swiftpm-traits`)

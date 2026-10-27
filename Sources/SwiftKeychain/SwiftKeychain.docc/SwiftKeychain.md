@@ -27,3 +27,7 @@ An unsigned command-line tool can't use the data-protection keychain; it passes
 
 - ``SystemKeychain``
 - ``InMemoryKeychain``
+
+### Keys
+
+- ``KeychainKey``
