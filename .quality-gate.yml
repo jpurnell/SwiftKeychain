@@ -10,8 +10,9 @@
 # matches nothing and excludes nothing.
 docTarget: SwiftKeychain
 
-excludedCheckers:
-  - disk-clean
+# The conformances are behind traits, off for apps by default; the gate builds with them on so
+# it compiles, tests and indexes them.
+traits: [OAuth, CLIAuth]
 
 enabledCheckers:
   - all

@@ -4,8 +4,8 @@ Tokens and keys in the Apple Keychain, for apps built on
 [swift-oauth](https://github.com/jpurnell/swift-oauth) and
 [swift-cli-kit-auth](https://github.com/jpurnell/swift-cli-kit-auth).
 
-**Status: in development, not yet released.** The core store is built; the swift-oauth and
-swift-cli-kit-auth conformances are next.
+**Status: in development, not yet released.** Built: the core store, `KeychainKey`, and both
+conformances. 0.1.0 follows once the quality gate builds with traits.
 
 ## What it does
 
@@ -29,8 +29,21 @@ macOS may ask once to allow access.
 
 ## Traits
 
-The conformances for swift-oauth and swift-cli-kit-auth are behind traits, off by default, so an
-app that wants only the core downloads nothing else.
+The conformances are behind traits, off by default, so an app that wants only the core downloads
+nothing else:
+
+```swift
+.package(url: "https://github.com/jpurnell/SwiftKeychain.git", from: "0.1.0", traits: ["OAuth"])
+```
+
+- **`OAuth`**: `KeychainClientStorage`, swift-oauth's `OAuthClientStorage`. One item per
+  connection, kept on the device and never synchronized: a rotating refresh token on two devices
+  gets the whole token family revoked.
+- **`CLIAuth`**: `KeychainTokenCache`, swift-cli-kit-auth's `TokenCache`, in the login keychain by
+  default.
+
+`KeychainKey.loadOrCreate` gives a 32-byte key for swift-oauth's `EncryptedFileClientStorage`,
+if you'd rather keep credentials in a file sealed by a Keychain key.
 
 ## Requirements
 

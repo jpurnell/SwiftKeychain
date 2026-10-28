@@ -51,8 +51,8 @@ Sources/SwiftKeychain/
 - [x] Design proposal: `project/plans/proposals/2026-10-27_SwiftKeychain.md` (decisions §15, §17)
 - [x] Core: `KeychainAccess`, `KeychainItem`, `KeychainError`, `InMemoryKeychain`, `SystemKeychain`
 - [x] `KeychainKey.loadOrCreate` (32-byte keys, never replaced if malformed)
-- [ ] `KeychainTokenCache` (`CLIAuth`)
-- [ ] `KeychainClientStorage` (`OAuth`)
+- [x] `KeychainTokenCache` (`CLIAuth`; defaults to the login keychain)
+- [x] `KeychainClientStorage` (`OAuth`; device-only, JSON account names; data-protection keychain by default)
 - [ ] Gate and CI build with traits (quality-gate-swift `feat/swiftpm-traits`)
 - [ ] 0.1.0
 
@@ -68,4 +68,4 @@ Sources/SwiftKeychain/
 
 ---
 
-**Last Updated:** 2026-10-27 (the core built; adapters next.)
+**Last Updated:** 2026-10-27 (the core, `KeychainKey` and both conformances built; waiting on the gate learning traits.)

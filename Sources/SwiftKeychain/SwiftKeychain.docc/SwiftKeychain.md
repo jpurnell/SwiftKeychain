@@ -31,3 +31,8 @@ An unsigned command-line tool can't use the data-protection keychain; it passes
 ### Keys
 
 - ``KeychainKey``
+
+### Conformances (traits)
+
+- ``KeychainClientStorage``
+- ``KeychainTokenCache``
