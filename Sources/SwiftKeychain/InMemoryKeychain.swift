@@ -53,6 +53,21 @@ public final class InMemoryKeychain: KeychainAccess {
         items.withLock { $0[Key(item)] = data }
     }
 
+    /// Stores `data` as `item` only if nothing is stored there yet.
+    /// - Parameters:
+    ///   - data: The secret.
+    ///   - item: Where it goes.
+    /// - Returns: `true` if this call stored it, `false` if an item was already there.
+    /// - Throws: ``KeychainError/malformed(_:)`` for an item no store can hold.
+    public func add(_ data: Data, as item: KeychainItem) throws(KeychainError) -> Bool {
+        try item.validate()
+        return items.withLock { items in
+            guard items[Key(item)] == nil else { return false }
+            items[Key(item)] = data
+            return true
+        }
+    }
+
     /// Removes `item`, if it is there.
     /// - Parameter item: The item to remove.
     /// - Throws: ``KeychainError/malformed(_:)`` for an item no store can hold.

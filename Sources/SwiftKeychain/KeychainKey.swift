@@ -19,7 +19,8 @@ public enum KeychainKey {
     /// A stored item of the wrong size is refused, not replaced: a new key would make everything
     /// sealed with the old one unreadable, which reaches the person as an unexplained request to
     /// sign in again. Any error reading the item is thrown, so a locked device can't mint a key
-    /// that replaces the real one.
+    /// that replaces the real one. A new key is only added, never stored over another: if a second
+    /// process created one between this read and that add, its key is the one returned.
     ///
     /// - Parameters:
     ///   - item: Where the key is kept.
@@ -28,16 +29,25 @@ public enum KeychainKey {
     /// - Throws: ``KeychainError``.
     public static func loadOrCreate(_ item: KeychainItem, using keychain: some KeychainAccess) throws(KeychainError) -> Data {
         if let stored = try keychain.data(for: item) {
-            guard stored.count == byteCount else {
-                throw .malformed("the stored key is \(stored.count) bytes, not \(byteCount)")
-            }
-            return stored
+            return try checked(stored)
         }
         var bytes = [UInt8](repeating: 0, count: byteCount)
         let status = SecRandomCopyBytes(kSecRandomDefault, byteCount, &bytes)
         guard status == errSecSuccess else { throw .status(status) }
         let key = Data(bytes)
-        try keychain.store(key, as: item)
-        return key
+        if try keychain.add(key, as: item) { return key }
+        // Another process added one first; theirs is the key.
+        guard let theirs = try keychain.data(for: item) else {
+            throw .malformed("the key was added by another process and removed before it could be read")
+        }
+        return try checked(theirs)
+    }
+
+    /// `stored`, if it is a key of the right size.
+    private static func checked(_ stored: Data) throws(KeychainError) -> Data {
+        guard stored.count == byteCount else {
+            throw .malformed("the stored key is \(stored.count) bytes, not \(byteCount)")
+        }
+        return stored
     }
 }

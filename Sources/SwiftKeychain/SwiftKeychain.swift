@@ -24,6 +24,17 @@ public protocol KeychainAccess: Sendable {
     /// - Throws: ``KeychainError``.
     func store(_ data: Data, as item: KeychainItem) throws(KeychainError)
 
+    /// Stores `data` as `item` only if nothing is stored there yet, leaving what is.
+    ///
+    /// For a value two processes may both create, such as a key: the one that loses the race
+    /// reads the winner's instead of replacing it.
+    /// - Parameters:
+    ///   - data: The secret.
+    ///   - item: Where it goes, and who may read it.
+    /// - Returns: `true` if this call stored it, `false` if an item was already there.
+    /// - Throws: ``KeychainError``.
+    func add(_ data: Data, as item: KeychainItem) throws(KeychainError) -> Bool
+
     /// Removes `item`. Removing an item that isn't there is not an error.
     /// - Parameter item: The item to remove.
     /// - Throws: ``KeychainError``.
@@ -34,6 +45,25 @@ public protocol KeychainAccess: Sendable {
     /// - Returns: The account names, or none.
     /// - Throws: ``KeychainError``.
     func accounts(service: String) throws(KeychainError) -> [String]
+}
+
+extension KeychainAccess {
+
+    /// Reads, then stores only if nothing was there.
+    ///
+    /// For a store written before ``KeychainAccess/add(_:as:)`` was part of the protocol. It is
+    /// not atomic: a write between the read and the store is replaced. ``SystemKeychain`` and
+    /// ``InMemoryKeychain`` implement `add` atomically, and a store that can should too.
+    /// - Parameters:
+    ///   - data: The secret.
+    ///   - item: Where it goes, and who may read it.
+    /// - Returns: `true` if this call stored it, `false` if an item was already there.
+    /// - Throws: ``KeychainError``.
+    public func add(_ data: Data, as item: KeychainItem) throws(KeychainError) -> Bool {
+        guard try self.data(for: item) == nil else { return false }
+        try store(data, as: item)
+        return true
+    }
 }
 
 /// Why the Keychain refused.

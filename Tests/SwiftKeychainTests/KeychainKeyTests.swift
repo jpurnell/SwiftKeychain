@@ -3,6 +3,7 @@
 // Created by Justin Purnell on 2026-10-27.
 
 import Foundation
+import os
 import Testing
 import SwiftKeychain
 
@@ -14,6 +15,36 @@ private struct RefusingKeychain: KeychainAccess {
     func store(_ data: Data, as item: KeychainItem) throws(KeychainError) { throw error }
     func delete(_ item: KeychainItem) throws(KeychainError) { throw error }
     func accounts(service: String) throws(KeychainError) -> [String] { throw error }
+}
+
+/// Another launch of the same app, storing its own new key just after this one read and found
+/// none: the race two processes run when both start before either has a key.
+private final class RacedKeychain: KeychainAccess {
+    let store = InMemoryKeychain()
+    let theirs: Data
+    private let raced = OSAllocatedUnfairLock(initialState: false)
+
+    init(theirs: Data) { self.theirs = theirs }
+
+    func data(for item: KeychainItem) throws(KeychainError) -> Data? {
+        let found = try store.data(for: item)
+        let first = raced.withLock { done in defer { done = true }; return !done }
+        if first { try store.store(theirs, as: item) }
+        return found
+    }
+    func store(_ data: Data, as item: KeychainItem) throws(KeychainError) { try store.store(data, as: item) }
+    func add(_ data: Data, as item: KeychainItem) throws(KeychainError) -> Bool { try store.add(data, as: item) }
+    func delete(_ item: KeychainItem) throws(KeychainError) { try store.delete(item) }
+    func accounts(service: String) throws(KeychainError) -> [String] { try store.accounts(service: service) }
+}
+
+/// A store that implements only the four calls 0.1.0 required, so `add` is the protocol's default.
+private struct BasicKeychain: KeychainAccess {
+    let store = InMemoryKeychain()
+    func data(for item: KeychainItem) throws(KeychainError) -> Data? { try store.data(for: item) }
+    func store(_ data: Data, as item: KeychainItem) throws(KeychainError) { try store.store(data, as: item) }
+    func delete(_ item: KeychainItem) throws(KeychainError) { try store.delete(item) }
+    func accounts(service: String) throws(KeychainError) -> [String] { try store.accounts(service: service) }
 }
 
 @Suite("KeychainKey")
@@ -55,6 +86,24 @@ struct KeychainKeyTests {
             try KeychainKey.loadOrCreate(item, using: keychain)
         }
         #expect(try keychain.data(for: item) == Data(count: 16))
+    }
+
+    /// Replacing theirs would leave the other launch holding a key that is no longer stored,
+    /// and whatever it sealed with it unreadable.
+    @Test("A key another launch stored first is the one returned, and it is left in place")
+    func raced() throws {
+        let theirs = Data(repeating: 7, count: KeychainKey.byteCount)
+        let keychain = RacedKeychain(theirs: theirs)
+        #expect(try KeychainKey.loadOrCreate(item, using: keychain) == theirs)
+        #expect(try keychain.data(for: item) == theirs)
+    }
+
+    @Test("A store without its own add gets one that leaves an existing item alone")
+    func defaultAdd() throws {
+        let keychain = BasicKeychain()
+        #expect(try keychain.add(Data("first".utf8), as: item))
+        #expect(try keychain.add(Data("second".utf8), as: item) == false)
+        #expect(try keychain.data(for: item) == Data("first".utf8))
     }
 
     @Test("A locked keychain throws, rather than minting a key that would replace the real one")

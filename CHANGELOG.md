@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-28
+
+### Fixed
+
+- `KeychainKey.loadOrCreate` could lose a key. Two processes that both found no key both
+  stored one, and the second store replaced the first; the first process then held a key that
+  was no longer stored, and whatever it had sealed with it became unreadable. A new key is now
+  only added, never stored over another, and the process that loses the race returns the
+  winner's key. Found while moving SwiftPushInbox's `KeychainHistoryKey`, which already did this,
+  onto the package.
+
+### Added
+
+- `KeychainAccess.add(_:as:)`: stores only if nothing is there and says whether it did.
+  `SystemKeychain` (one `SecItemAdd`) and `InMemoryKeychain` implement it atomically. A default
+  implementation reads and then stores, so a conformer written for 0.1.0 still compiles; it is
+  not atomic, and the documentation says so.
+
 ## [0.1.0] - 2026-10-27
 
 The first release. Closes Stack Map gap #7, "Keychain credential store".
@@ -29,5 +47,6 @@ The first release. Closes Stack Map gap #7, "Keychain credential store".
 - Traits `OAuth` and `CLIAuth`, off by default, for the swift-oauth and swift-cli-kit-auth
   conformances.
 
-[Unreleased]: https://github.com/jpurnell/SwiftKeychain/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/jpurnell/SwiftKeychain/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/jpurnell/SwiftKeychain/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/jpurnell/SwiftKeychain/releases/tag/v0.1.0

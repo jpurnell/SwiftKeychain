@@ -4,7 +4,7 @@ Tokens and keys in the Apple Keychain, for apps built on
 [swift-oauth](https://github.com/jpurnell/swift-oauth) and
 [swift-cli-kit-auth](https://github.com/jpurnell/swift-cli-kit-auth).
 
-**Status: 0.1.0.** The core store, `KeychainKey`, and the swift-oauth and swift-cli-kit-auth
+**Status: 0.1.1.** The core store, `KeychainKey`, and the swift-oauth and swift-cli-kit-auth
 conformances.
 
 ```swift

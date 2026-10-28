@@ -33,12 +33,12 @@ Sources/SwiftKeychain/
 
 | Type | Role |
 |---|---|
-| `KeychainAccess` | Read, store (add, then update), delete, list accounts |
+| `KeychainAccess` | Read, store (add, then update), add only if absent, delete, list accounts |
 | `KeychainItem` | Service, account, accessibility, synchronizable, access group |
 | `KeychainError` | `locked`, `missingEntitlement`, `malformed`, `status` |
 | `SystemKeychain` | The Apple Keychain |
 | `InMemoryKeychain` | The same rules, in memory |
-| `KeychainKey` | A 32-byte key, read or created |
+| `KeychainKey` | A 32-byte key, read or created; a key another process created first wins |
 | `KeychainTokenCache` | `TokenCache` (trait `CLIAuth`), login keychain by default |
 | `KeychainClientStorage` | `OAuthClientStorage` (trait `OAuth`), one device-only item per connection |
 
@@ -61,17 +61,22 @@ Sources/SwiftKeychain/
 - [x] `KeychainClientStorage` (`OAuth`; device-only, JSON account names; data-protection keychain by default)
 - [x] Gate and CI build with traits (quality-gate-swift #63, `traits: [OAuth, CLIAuth]` in `.quality-gate.yml`)
 - [x] 0.1.0 released 2026-10-27, CI on `main` green
+- [x] 0.1.1: `KeychainAccess.add(_:as:)`; `KeychainKey.loadOrCreate` no longer replaces a key another process created first
 
 ## Roadmap
 
 ### 0.1.0 (released 2026-10-27)
 - [x] The core, `KeychainKey`, both adapters, README and guide; gate 0/0; CI green.
 
+### 0.1.1 (2026-10-28)
+- [x] Atomic `add`, and `KeychainKey` creation that survives two processes racing. Not on the
+      plan: found while moving SwiftPushInbox onto the package.
+
 ### Later
 - `SecAccessControl` with user presence for step-up.
 - SwiftIdentity `SealingKey(data:)` and `Pepper(data:)`, so its server keys can come from here.
-- Move SwiftMCPClient and FleetWatch onto this package.
+- Move SwiftPushInbox, SwiftMCPClient and FleetWatch onto this package.
 
 ---
 
-**Last Updated:** 2026-10-27 (0.1.0 released: the layout and type table reconciled with what shipped; the proposal moved to completed. Earlier the same day: the core, `KeychainKey` and both conformances built, and the gate taught traits.)
+**Last Updated:** 2026-10-28 (0.1.1: atomic `add` and the key-creation race; type table and roadmap reconciled. Earlier, 2026-10-27, 0.1.0 released: the layout and type table reconciled with what shipped; the proposal moved to completed. Earlier the same day: the core, `KeychainKey` and both conformances built, and the gate taught traits.)

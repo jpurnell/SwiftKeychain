@@ -62,6 +62,8 @@ entitlements. Leave it `nil` for the app's own items.
 
 ``KeychainKey/loadOrCreate(_:using:)`` keeps a 32-byte key: it reads the key if it is there and
 creates and stores one if not. A stored item of the wrong size is refused rather than replaced,
-since a new key would make everything sealed with the old one unreadable. Use it to seal a file
+since a new key would make everything sealed with the old one unreadable. A new key is added,
+never stored over another, so when two processes start at once and both create one, the second
+gets the first's key. Use it to seal a file
 of credentials, such as swift-oauth's `EncryptedFileClientStorage`, when one item per credential
 doesn't suit.

@@ -57,20 +57,30 @@ public struct SystemKeychain: KeychainAccess {
     ///   - item: Where it goes, and who may read it.
     /// - Throws: ``KeychainError``.
     public func store(_ data: Data, as item: KeychainItem) throws(KeychainError) {
-        try item.validate()
-        var added = identity(of: item)
-        added[kSecValueData as String] = data
-        added[kSecAttrAccessible as String] = Self.accessible(item.accessibility)
-        let status = SecItemAdd(added as CFDictionary, nil)
-        guard status == errSecDuplicateItem else {
-            try Self.check(status, doing: "add")
-            return
-        }
+        guard try !add(data, as: item) else { return }
         let changes: [String: Any] = [
             kSecValueData as String: data,
             kSecAttrAccessible as String: Self.accessible(item.accessibility),
         ]
         try Self.check(SecItemUpdate(identity(of: item) as CFDictionary, changes as CFDictionary), doing: "update")
+    }
+
+    /// Stores `data` as `item` only if nothing is stored there yet: one add, which the Keychain
+    /// refuses as a duplicate if another process got there first.
+    /// - Parameters:
+    ///   - data: The secret.
+    ///   - item: Where it goes, and who may read it.
+    /// - Returns: `true` if this call stored it, `false` if an item was already there.
+    /// - Throws: ``KeychainError``.
+    public func add(_ data: Data, as item: KeychainItem) throws(KeychainError) -> Bool {
+        try item.validate()
+        var added = identity(of: item)
+        added[kSecValueData as String] = data
+        added[kSecAttrAccessible as String] = Self.accessible(item.accessibility)
+        let status = SecItemAdd(added as CFDictionary, nil)
+        if status == errSecDuplicateItem { return false }
+        try Self.check(status, doing: "add")
+        return true
     }
 
     /// Removes `item`, if it is there.

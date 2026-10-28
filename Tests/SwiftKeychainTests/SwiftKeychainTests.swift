@@ -43,6 +43,15 @@ struct KeychainContractTests {
         #expect(try keychain.accounts(service: item.service) == ["ada"])
     }
 
+    @Test("Adding stores an item that isn't there, and leaves one that is", arguments: stores)
+    func add(_ keychain: any KeychainAccess) throws {
+        let item = Self.item()
+        defer { try? keychain.delete(item) }
+        #expect(try keychain.add(Data("first".utf8), as: item))
+        #expect(try keychain.add(Data("second".utf8), as: item) == false)
+        #expect(try keychain.data(for: item) == Data("first".utf8))
+    }
+
     @Test("Deleting removes the item, and deleting what isn't there is not an error", arguments: stores)
     func delete(_ keychain: any KeychainAccess) throws {
         let item = Self.item()
