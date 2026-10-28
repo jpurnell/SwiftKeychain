@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   which can't honour access control (design:
   `project/plans/completed/2026-10-28_UserPresence02.md`).
 - `KeychainError.cancelled` (the person dismissed the prompt) and `.authenticationFailed`.
+- tvOS 17 and watchOS 10. Everything but user presence works there; tvOS has no
+  LocalAuthentication and watchOS can't give a prompt a reason, so `SystemKeychain` refuses
+  presence items on both. Asked for by SwiftMCPClient, which supports both and would otherwise
+  have lost its stored credentials there when it moved onto this package.
 - `InMemoryKeychain(presence:)`: answers prompts in an app's tests, so the "they said no" path can
   be tested without a person. Grants by default.
 - The guide gained "Asking for the person", and shows SwiftIdentity 0.8.0's `Pepper(data:)` and

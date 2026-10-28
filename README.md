@@ -59,7 +59,8 @@ which keychain, access groups and keys.
 ## Requirements
 
 - Swift 6.2+
-- macOS 14+, iOS 17+ or visionOS 1+. Not Linux: there is no Keychain there.
+- macOS 14+, iOS 17+, tvOS 17+, watchOS 10+ or visionOS 1+. Items that ask for the person need
+  macOS, iOS or visionOS. Not Linux: there is no Keychain there.
 
 ## Licence
 

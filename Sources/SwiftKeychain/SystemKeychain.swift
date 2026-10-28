@@ -3,7 +3,10 @@
 // Created by Justin Purnell on 2026-10-27.
 
 import Foundation
+// tvOS has no LocalAuthentication, and watchOS can't give a prompt a reason; neither can ask for the person.
+#if canImport(LocalAuthentication) && !os(watchOS)
 import LocalAuthentication
+#endif
 import Security
 #if canImport(os)
 import os
@@ -104,9 +107,7 @@ public struct SystemKeychain: KeychainAccess {
         query[kSecReturnAttributes as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitAll
         // Listing names never needs the person; an item under access control mustn't prompt for it.
-        let silent = LAContext()
-        silent.interactionNotAllowed = true
-        query[kSecUseAuthenticationContext as String] = silent
+        query[kSecUseAuthenticationContext as String] = Self.silentContext()
         var result: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
         if status == errSecItemNotFound { return [] }
@@ -124,6 +125,9 @@ public struct SystemKeychain: KeychainAccess {
     /// keychain can honour. Storing it without that protection would be worse than refusing.
     private func checkSupported(_ item: KeychainItem) throws(KeychainError) {
         try item.validate()
+        guard Self.canAskForPerson || !item.requiresUserPresence else {
+            throw .malformed("this platform can't ask for the person")
+        }
         guard dataProtection || !item.requiresUserPresence else {
             throw .malformed("the login keychain can't ask for the person; use the data-protection keychain")
         }
@@ -164,11 +168,36 @@ public struct SystemKeychain: KeychainAccess {
         return [kSecAttrAccessControl as String: control]
     }
 
-    /// A context whose prompt says what the read is for.
-    private static func context(prompt: String) -> LAContext {
+    /// Whether this platform can ask for the person: not tvOS or watchOS.
+    static var canAskForPerson: Bool {
+        #if canImport(LocalAuthentication) && !os(watchOS)
+        true
+        #else
+        false
+        #endif
+    }
+
+    /// A context whose prompt says what the read is for; `nil` where the platform can't ask,
+    /// which ``checkSupported(_:)`` has already refused.
+    private static func context(prompt: String) -> AnyObject? {
+        #if canImport(LocalAuthentication) && !os(watchOS)
         let context = LAContext()
         context.localizedReason = prompt
         return context
+        #else
+        return nil
+        #endif
+    }
+
+    /// A context that never prompts, for listing; `nil` where nothing can prompt anyway.
+    private static func silentContext() -> AnyObject? {
+        #if canImport(LocalAuthentication) && !os(watchOS)
+        let context = LAContext()
+        context.interactionNotAllowed = true
+        return context
+        #else
+        return nil
+        #endif
     }
 
     /// The attributes every query shares.

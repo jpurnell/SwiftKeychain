@@ -174,3 +174,7 @@ None blocking. Defaults chosen: `Bool` not an enum (§13); the prompt is require
 - **Not done:** a real prompt in a signed app. The test runner is unsigned and can't store in the
   data-protection keychain; no signed app uses a presence item yet. The first one to should
   confirm the prompt shows its reason, and that cancelling arrives as `.cancelled`.
+- **tvOS and watchOS added** (not in the proposal): SwiftMCPClient declares both, and moving it
+  onto 0.1.1 compiled its credential key out there. Both build; `SystemKeychain` refuses presence
+  items on them (`canAskForPerson`). Verified by `xcodebuild` for each generic platform; there is
+  no tvOS or watchOS test run.

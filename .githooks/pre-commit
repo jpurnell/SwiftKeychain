@@ -30,7 +30,11 @@ if ! command -v quality-gate >/dev/null 2>&1; then
 fi
 
 echo "pre-commit: building..."
-swift build 2>&1 | tail -3
+if [ -f Package.resolved ]; then
+  swift build --only-use-versions-from-resolved-file 2>&1 | tail -3
+else
+  swift build 2>&1 | tail -3
+fi
 
 echo "pre-commit: quality gate (all)..."
 quality-gate --check all --strict

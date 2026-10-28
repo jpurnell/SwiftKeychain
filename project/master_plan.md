@@ -18,7 +18,8 @@ out) written down once.
 - Swift 6.2, strict concurrency. Foundation and Security only for the core.
 - Traits, off by default: `OAuth` (swift-oauth) and `CLIAuth` (swift-cli-kit-auth). A disabled
   trait's dependency isn't downloaded.
-- macOS 14, iOS 17, visionOS 1. No Linux: the Keychain isn't there, and Linux apps keep the file
+- macOS 14, iOS 17, tvOS 17, watchOS 10, visionOS 1 (tvOS and watchOS from 0.2.0, without user
+  presence). No Linux: the Keychain isn't there, and Linux apps keep the file
   stores in swift-oauth and swift-cli-kit-auth.
 
 ```

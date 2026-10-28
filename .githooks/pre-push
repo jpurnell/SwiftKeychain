@@ -30,7 +30,11 @@ if ! command -v quality-gate >/dev/null 2>&1; then
 fi
 
 echo "pre-push: building..."
-swift build 2>&1 | tail -3
+if [ -f Package.resolved ]; then
+  swift build --only-use-versions-from-resolved-file 2>&1 | tail -3
+else
+  swift build 2>&1 | tail -3
+fi
 
 # --release-boundary enforces the release-tag invariant at full strength: it
 # refuses a push when CHANGELOG.md documents a version whose vX.Y.Z tag does

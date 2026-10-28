@@ -43,7 +43,7 @@ way to change that.
 
 ## Which keychain
 
-On iOS and visionOS there is one keychain. On macOS ``SystemKeychain`` chooses between two:
+On iOS, tvOS, watchOS and visionOS there is one keychain. On macOS ``SystemKeychain`` chooses between two:
 
 - **The data-protection keychain** (`SystemKeychain()`), the same one iOS uses, for signed apps
   with a keychain entitlement. An unsigned process is refused when it stores, with
@@ -82,7 +82,8 @@ shouldn't reappear at once.
 Which calls ask: reading does; replacing an existing item may; adding, deleting and listing
 accounts don't. Such items need the data-protection keychain, so on macOS
 `SystemKeychain(dataProtection: false)` refuses them rather than storing them without the
-protection asked for. They don't synchronize.
+protection asked for. tvOS and watchOS can't show the prompt, so they refuse them too. They
+don't synchronize.
 
 It stops silent reads, not persuasion: a person who approves a prompt they didn't expect has
 approved it. To test what an app does when the person says no, give ``InMemoryKeychain`` a

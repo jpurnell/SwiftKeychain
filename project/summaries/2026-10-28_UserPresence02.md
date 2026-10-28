@@ -8,6 +8,7 @@
 - **Tests:** `UserPresenceTests` (red first, 8 compile errors): validation, the in-memory prompt,
   the login keychain's refusal, the attributes and read query `SystemKeychain` builds, status
   mapping. 45 with both traits, 27 without.
+- **Also:** tvOS 17 and watchOS 10, without presence (for SwiftMCPClient); built with xcodebuild, not tested there.
 - **Not verified:** a real prompt; needs a signed app (proposal §18).
 - **Consumers:** SwiftPushInbox's PR logs errors with `String(describing:)`, so the two new cases
   need nothing there; SwiftMCPClient and FleetWatch checked when their PRs land.
