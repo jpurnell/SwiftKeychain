@@ -33,7 +33,8 @@ The conformances are behind traits, off by default, so an app that wants only th
 nothing else:
 
 ```swift
-.package(url: "https://github.com/jpurnell/SwiftKeychain.git", from: "0.1.0", traits: ["OAuth"])
+// Until 0.1.0 is tagged:
+.package(url: "https://github.com/jpurnell/SwiftKeychain.git", branch: "main", traits: ["OAuth"])
 ```
 
 - **`OAuth`**: `KeychainClientStorage`, swift-oauth's `OAuthClientStorage`. One item per
