@@ -4,8 +4,14 @@ Tokens and keys in the Apple Keychain, for apps built on
 [swift-oauth](https://github.com/jpurnell/swift-oauth) and
 [swift-cli-kit-auth](https://github.com/jpurnell/swift-cli-kit-auth).
 
-**Status: in development, not yet released.** Built: the core store, `KeychainKey`, and both
-conformances. 0.1.0 follows once the quality gate builds with traits.
+**Status: 0.1.0.** The core store, `KeychainKey`, and the swift-oauth and swift-cli-kit-auth
+conformances.
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/jpurnell/SwiftKeychain.git", from: "0.1.0"),
+]
+```
 
 ## What it does
 
@@ -33,8 +39,7 @@ The conformances are behind traits, off by default, so an app that wants only th
 nothing else:
 
 ```swift
-// Until 0.1.0 is tagged:
-.package(url: "https://github.com/jpurnell/SwiftKeychain.git", branch: "main", traits: ["OAuth"])
+.package(url: "https://github.com/jpurnell/SwiftKeychain.git", from: "0.1.0", traits: ["OAuth"])
 ```
 
 - **`OAuth`**: `KeychainClientStorage`, swift-oauth's `OAuthClientStorage`. One item per
@@ -45,6 +50,11 @@ nothing else:
 
 `KeychainKey.loadOrCreate` gives a 32-byte key for swift-oauth's `EncryptedFileClientStorage`,
 if you'd rather keep credentials in a file sealed by a Keychain key.
+
+## Documentation
+
+The DocC catalogue includes **Choosing Where Secrets Live**: accessibility classes, synchronizing,
+which keychain, access groups and keys.
 
 ## Requirements
 

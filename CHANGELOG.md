@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-27
+
+The first release. Closes Stack Map gap #7, "Keychain credential store".
+
 ### Added
 
 - `KeychainAccess`, `KeychainItem` and `KeychainError`; `SystemKeychain` (the data-protection or
@@ -20,5 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `KeychainClientStorage` (trait `OAuth`): swift-oauth's `OAuthClientStorage`, one device-only
   item per connection, never synchronized. The account name is the `ConnectionID` as JSON with
   sorted keys. An item that doesn't decode throws rather than reading as not connected.
+- A guide, "Choosing Where Secrets Live": accessibility classes, synchronizing (and why OAuth
+  credentials never do), the data-protection and login keychains, access groups, keys.
 - Traits `OAuth` and `CLIAuth`, off by default, for the swift-oauth and swift-cli-kit-auth
   conformances.
+
+[Unreleased]: https://github.com/jpurnell/SwiftKeychain/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/jpurnell/SwiftKeychain/releases/tag/v0.1.0

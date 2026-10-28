@@ -17,6 +17,10 @@ An unsigned command-line tool can't use the data-protection keychain; it passes
 
 ## Topics
 
+### Essentials
+
+- <doc:ChoosingWhereSecretsLive>
+
 ### Storing secrets
 
 - ``KeychainAccess``

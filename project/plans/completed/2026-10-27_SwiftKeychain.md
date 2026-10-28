@@ -1,7 +1,7 @@
 # Design Proposal: a Keychain credential store, as its own package
 
 **Date:** 2026-10-27
-**Status:** Open questions decided by the user 2026-10-27 (§15): named SwiftKeychain; command-line
+**Status:** Implemented, released as 0.1.0 on 2026-10-27 (§17 records what changed while building). Open questions decided by the user 2026-10-27 (§15): named SwiftKeychain; command-line
 tools use the login keychain; public repository, proprietary licence. Stack Map gap #7 ("Keychain credential store", `sec`
 layer, capability `keychain`). The user decided it is its own package, not part of
 swift-cli-kit-auth.

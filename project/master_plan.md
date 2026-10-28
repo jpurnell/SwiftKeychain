@@ -25,7 +25,10 @@ out) written down once.
 Sources/SwiftKeychain/
 ├── SwiftKeychain.swift      KeychainAccess, KeychainError, KeychainItem
 ├── InMemoryKeychain.swift   the store apps test against
-└── SystemKeychain.swift     SecItem*, data-protection or login keychain
+├── SystemKeychain.swift     SecItem*, data-protection or login keychain
+├── KeychainKey.swift        32-byte keys, never replaced if malformed
+├── KeychainTokenCache.swift      (CLIAuth) swift-cli-kit-auth's TokenCache
+└── KeychainClientStorage.swift   (OAuth) swift-oauth's OAuthClientStorage
 ```
 
 | Type | Role |
@@ -35,6 +38,9 @@ Sources/SwiftKeychain/
 | `KeychainError` | `locked`, `missingEntitlement`, `malformed`, `status` |
 | `SystemKeychain` | The Apple Keychain |
 | `InMemoryKeychain` | The same rules, in memory |
+| `KeychainKey` | A 32-byte key, read or created |
+| `KeychainTokenCache` | `TokenCache` (trait `CLIAuth`), login keychain by default |
+| `KeychainClientStorage` | `OAuthClientStorage` (trait `OAuth`), one device-only item per connection |
 
 ## Key Decisions
 
@@ -48,18 +54,18 @@ Sources/SwiftKeychain/
 
 ## Current Status
 
-- [x] Design proposal: `project/plans/proposals/2026-10-27_SwiftKeychain.md` (decisions §15, §17)
+- [x] Design proposal: `project/plans/completed/2026-10-27_SwiftKeychain.md` (decisions §15, §17)
 - [x] Core: `KeychainAccess`, `KeychainItem`, `KeychainError`, `InMemoryKeychain`, `SystemKeychain`
 - [x] `KeychainKey.loadOrCreate` (32-byte keys, never replaced if malformed)
 - [x] `KeychainTokenCache` (`CLIAuth`; defaults to the login keychain)
 - [x] `KeychainClientStorage` (`OAuth`; device-only, JSON account names; data-protection keychain by default)
-- [ ] Gate and CI build with traits (quality-gate-swift `feat/swiftpm-traits`)
-- [ ] 0.1.0
+- [x] Gate and CI build with traits (quality-gate-swift #63, `traits: [OAuth, CLIAuth]` in `.quality-gate.yml`)
+- [x] 0.1.0 released 2026-10-27, CI on `main` green
 
 ## Roadmap
 
-### 0.1.0
-- [ ] The core, `KeychainKey`, both adapters, README and guide; gate 0/0; CI green.
+### 0.1.0 (released 2026-10-27)
+- [x] The core, `KeychainKey`, both adapters, README and guide; gate 0/0; CI green.
 
 ### Later
 - `SecAccessControl` with user presence for step-up.
@@ -68,4 +74,4 @@ Sources/SwiftKeychain/
 
 ---
 
-**Last Updated:** 2026-10-27 (the core, `KeychainKey` and both conformances built; waiting on the gate learning traits.)
+**Last Updated:** 2026-10-27 (0.1.0 released: the layout and type table reconciled with what shipped; the proposal moved to completed. Earlier the same day: the core, `KeychainKey` and both conformances built, and the gate taught traits.)
