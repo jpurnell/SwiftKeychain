@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-28
+
+### Added
+
+- Items that ask for the person: `KeychainItem.requiresUserPresence` and `presencePrompt`.
+  `SystemKeychain` stores them under `SecAccessControl` (`.userPresence` over the item's
+  accessibility class) and reads them with an `LAContext` carrying the prompt. Reading asks;
+  replacing may; adding, deleting and listing don't. Refused before reaching the Keychain: one
+  that synchronizes, one with no prompt (or a blank one), and any in the macOS login keychain,
+  which can't honour access control (design:
+  `project/plans/completed/2026-10-28_UserPresence02.md`).
+- `KeychainError.cancelled` (the person dismissed the prompt) and `.authenticationFailed`.
+- `InMemoryKeychain(presence:)`: answers prompts in an app's tests, so the "they said no" path can
+  be tested without a person. Grants by default.
+- The guide gained "Asking for the person", and shows SwiftIdentity 0.8.0's `Pepper(data:)` and
+  `SealingKey(data:)` taking a key from `KeychainKey`.
+
+### Changed
+
+- **Breaking for exhaustive `switch`es over `KeychainError`**, which gained two cases. Nothing
+  else breaks: `KeychainItem.init`'s two new parameters have defaults.
+
 ## [0.1.1] - 2026-10-28
 
 ### Fixed
@@ -47,6 +69,7 @@ The first release. Closes Stack Map gap #7, "Keychain credential store".
 - Traits `OAuth` and `CLIAuth`, off by default, for the swift-oauth and swift-cli-kit-auth
   conformances.
 
-[Unreleased]: https://github.com/jpurnell/SwiftKeychain/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/jpurnell/SwiftKeychain/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/jpurnell/SwiftKeychain/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/jpurnell/SwiftKeychain/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/jpurnell/SwiftKeychain/releases/tag/v0.1.0

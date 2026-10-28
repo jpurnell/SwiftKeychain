@@ -84,6 +84,13 @@ public enum KeychainError: Error, Equatable, Sendable {
 
     /// Any other Keychain status, carried as it came.
     case status(Int32)
+
+    /// The person dismissed the prompt for an item that asks for them (`errSecUserCanceled`).
+    /// Not "signed out", and not a reason to ask again at once.
+    case cancelled
+
+    /// The person tried to confirm it was them, and couldn't (`errSecAuthFailed`).
+    case authenticationFailed
 }
 
 /// One item in the Keychain: where it is filed, and who may read it.
@@ -119,6 +126,12 @@ public struct KeychainItem: Sendable, Hashable {
     public var synchronizable: Bool
     /// The access group shared between apps, or `nil` for the app's own.
     public var accessGroup: String?
+    /// Whether each read asks for the person: Touch ID, Face ID, Optic ID, or the device passcode
+    /// or account password. Defaults to `false`. Needs the data-protection keychain, a
+    /// ``presencePrompt``, and an item that doesn't synchronize.
+    public var requiresUserPresence: Bool
+    /// What the prompt tells the person the read is for, such as "Unlock the signing key".
+    public var presencePrompt: String?
 
     /// Creates an item description.
     /// - Parameters:
@@ -127,26 +140,45 @@ public struct KeychainItem: Sendable, Hashable {
     ///   - accessibility: When it can be read.
     ///   - synchronizable: Whether it synchronizes to other devices.
     ///   - accessGroup: The shared access group, if any.
+    ///   - requiresUserPresence: Whether each read asks for the person.
+    ///   - presencePrompt: What the prompt says the read is for; required with `requiresUserPresence`.
     public init(
         service: String,
         account: String,
         accessibility: Accessibility = .afterFirstUnlockThisDeviceOnly,
         synchronizable: Bool = false,
-        accessGroup: String? = nil
+        accessGroup: String? = nil,
+        requiresUserPresence: Bool = false,
+        presencePrompt: String? = nil
     ) {
         self.service = service
         self.account = account
         self.accessibility = accessibility
         self.synchronizable = synchronizable
         self.accessGroup = accessGroup
+        self.requiresUserPresence = requiresUserPresence
+        self.presencePrompt = presencePrompt
     }
 
-    /// Refuses a combination no store can honour: an item kept on this device that also
-    /// synchronizes. The Keychain rejects it with an opaque status; this says why.
+    /// Refuses a combination no store can honour, saying why where the Keychain would answer
+    /// with an opaque status: an item kept on this device that also synchronizes; an item that
+    /// asks for the person and synchronizes, since items under access control don't; and one
+    /// that asks for the person without saying why.
     /// - Throws: ``KeychainError/malformed(_:)``.
     func validate() throws(KeychainError) {
         guard !(synchronizable && accessibility.isDeviceOnly) else {
             throw .malformed("an item kept on this device can't also synchronize")
         }
+        guard requiresUserPresence else { return }
+        guard !synchronizable else {
+            throw .malformed("an item that asks for the person can't synchronize")
+        }
+        let prompt = presencePrompt?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !prompt.isEmpty else {
+            throw .malformed("an item that asks for the person needs a prompt saying why")
+        }
     }
+
+    /// The prompt, for an item ``validate()`` has passed that asks for the person.
+    var prompt: String { presencePrompt ?? "" }
 }

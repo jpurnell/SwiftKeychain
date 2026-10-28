@@ -3,6 +3,7 @@
 // Created by Justin Purnell on 2026-10-27.
 
 import Foundation
+import LocalAuthentication
 import Security
 #if canImport(os)
 import os
@@ -18,6 +19,10 @@ import os
 /// ``KeychainError/missingEntitlement`` there when it stores, and should pass `false` to use the
 /// login keychain, which may ask the person once to allow access. Its reads there come back
 /// `nil`, because the system answers them "not found" rather than refusing.
+///
+/// An item that asks for the person (``KeychainItem/requiresUserPresence``) is stored under access
+/// control and needs the data-protection keychain. Reading it shows the system prompt with the
+/// item's ``KeychainItem/presencePrompt``; replacing it may too; adding, deleting and listing don't.
 public struct SystemKeychain: KeychainAccess {
 
     private static let logger = Logger(subsystem: "com.swiftkeychain", category: "SystemKeychain")
@@ -37,10 +42,7 @@ public struct SystemKeychain: KeychainAccess {
     /// - Returns: The data, or `nil` if there is no such item.
     /// - Throws: ``KeychainError``.
     public func data(for item: KeychainItem) throws(KeychainError) -> Data? {
-        try item.validate()
-        var query = identity(of: item)
-        query[kSecReturnData as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        let query = try readQuery(for: item)
         var result: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
         if status == errSecItemNotFound { return nil }
@@ -58,11 +60,13 @@ public struct SystemKeychain: KeychainAccess {
     /// - Throws: ``KeychainError``.
     public func store(_ data: Data, as item: KeychainItem) throws(KeychainError) {
         guard try !add(data, as: item) else { return }
-        let changes: [String: Any] = [
-            kSecValueData as String: data,
-            kSecAttrAccessible as String: Self.accessible(item.accessibility),
-        ]
-        try Self.check(SecItemUpdate(identity(of: item) as CFDictionary, changes as CFDictionary), doing: "update")
+        var changes = try protection(of: item)
+        changes[kSecValueData as String] = data
+        var query = identity(of: item)
+        if item.requiresUserPresence {
+            query[kSecUseAuthenticationContext as String] = Self.context(prompt: item.prompt)
+        }
+        try Self.check(SecItemUpdate(query as CFDictionary, changes as CFDictionary), doing: "update")
     }
 
     /// Stores `data` as `item` only if nothing is stored there yet: one add, which the Keychain
@@ -73,11 +77,7 @@ public struct SystemKeychain: KeychainAccess {
     /// - Returns: `true` if this call stored it, `false` if an item was already there.
     /// - Throws: ``KeychainError``.
     public func add(_ data: Data, as item: KeychainItem) throws(KeychainError) -> Bool {
-        try item.validate()
-        var added = identity(of: item)
-        added[kSecValueData as String] = data
-        added[kSecAttrAccessible as String] = Self.accessible(item.accessibility)
-        let status = SecItemAdd(added as CFDictionary, nil)
+        let status = SecItemAdd(try addAttributes(for: item, data: data) as CFDictionary, nil)
         if status == errSecDuplicateItem { return false }
         try Self.check(status, doing: "add")
         return true
@@ -87,7 +87,7 @@ public struct SystemKeychain: KeychainAccess {
     /// - Parameter item: The item to remove.
     /// - Throws: ``KeychainError``.
     public func delete(_ item: KeychainItem) throws(KeychainError) {
-        try item.validate()
+        try checkSupported(item)
         let status = SecItemDelete(identity(of: item) as CFDictionary)
         if status == errSecItemNotFound { return }
         try Self.check(status, doing: "delete")
@@ -103,6 +103,10 @@ public struct SystemKeychain: KeychainAccess {
         query[kSecAttrSynchronizable as String] = kSecAttrSynchronizableAny
         query[kSecReturnAttributes as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitAll
+        // Listing names never needs the person; an item under access control mustn't prompt for it.
+        let silent = LAContext()
+        silent.interactionNotAllowed = true
+        query[kSecUseAuthenticationContext as String] = silent
         var result: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
         if status == errSecItemNotFound { return [] }
@@ -114,6 +118,58 @@ public struct SystemKeychain: KeychainAccess {
     }
 
     // MARK: - Queries
+
+    /// Refuses an item this keychain can't hold as asked: the item's own rules, and, in the
+    /// login keychain, any item that asks for the person, which only the data-protection
+    /// keychain can honour. Storing it without that protection would be worse than refusing.
+    private func checkSupported(_ item: KeychainItem) throws(KeychainError) {
+        try item.validate()
+        guard dataProtection || !item.requiresUserPresence else {
+            throw .malformed("the login keychain can't ask for the person; use the data-protection keychain")
+        }
+    }
+
+    /// What `add` sends: the item, its data, and its protection.
+    func addAttributes(for item: KeychainItem, data: Data) throws(KeychainError) -> [String: Any] {
+        try checkSupported(item)
+        var attributes = identity(of: item)
+        attributes.merge(try protection(of: item)) { _, new in new }
+        attributes[kSecValueData as String] = data
+        return attributes
+    }
+
+    /// What a read of `item` sends: for an item that asks for the person, with a context that
+    /// carries the prompt.
+    func readQuery(for item: KeychainItem) throws(KeychainError) -> [String: Any] {
+        try checkSupported(item)
+        var query = identity(of: item)
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        if item.requiresUserPresence {
+            query[kSecUseAuthenticationContext as String] = Self.context(prompt: item.prompt)
+        }
+        return query
+    }
+
+    /// The accessibility class, or, for an item that asks for the person, access control over
+    /// that class. The Keychain takes one or the other, never both.
+    private func protection(of item: KeychainItem) throws(KeychainError) -> [String: Any] {
+        let accessible = Self.accessible(item.accessibility)
+        guard item.requiresUserPresence else {
+            return [kSecAttrAccessible as String: accessible]
+        }
+        guard let control = SecAccessControlCreateWithFlags(nil, accessible, .userPresence, nil) else {
+            throw .malformed("the system could not create access control for user presence")
+        }
+        return [kSecAttrAccessControl as String: control]
+    }
+
+    /// A context whose prompt says what the read is for.
+    private static func context(prompt: String) -> LAContext {
+        let context = LAContext()
+        context.localizedReason = prompt
+        return context
+    }
 
     /// The attributes every query shares.
     private func base() -> [String: Any] {
@@ -145,20 +201,27 @@ public struct SystemKeychain: KeychainAccess {
         }
     }
 
-    /// Turns a status other than success into the error that names it.
+    /// Turns a status other than success into the error that names it, and logs it.
     private static func check(_ status: OSStatus, doing operation: String) throws(KeychainError) {
-        switch status {
-        case errSecSuccess:
-            return
-        case errSecInteractionNotAllowed:
-            logger.notice("keychain \(operation, privacy: .public) refused: locked")
-            throw .locked
-        case errSecMissingEntitlement:
-            logger.error("keychain \(operation, privacy: .public) refused: missing entitlement")
-            throw .missingEntitlement
+        guard status != errSecSuccess else { return }
+        let failure = error(for: status)
+        switch failure {
+        case .locked, .cancelled:
+            logger.notice("keychain \(operation, privacy: .public) refused: \(String(describing: failure), privacy: .public)")
         default:
-            logger.error("keychain \(operation, privacy: .public) failed with status \(status, privacy: .public)")
-            throw .status(status)
+            logger.error("keychain \(operation, privacy: .public) failed: \(String(describing: failure), privacy: .public)")
+        }
+        throw failure
+    }
+
+    /// The error a status other than success names.
+    static func error(for status: OSStatus) -> KeychainError {
+        switch status {
+        case errSecInteractionNotAllowed: .locked
+        case errSecMissingEntitlement: .missingEntitlement
+        case errSecUserCanceled: .cancelled
+        case errSecAuthFailed: .authenticationFailed
+        default: .status(status)
         }
     }
 }

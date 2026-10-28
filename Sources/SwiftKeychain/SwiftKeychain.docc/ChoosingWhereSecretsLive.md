@@ -53,6 +53,41 @@ On iOS and visionOS there is one keychain. On macOS ``SystemKeychain`` chooses b
   are usually unsigned. macOS may ask the person once to allow access. `KeychainTokenCache` uses
   it by default.
 
+## Asking for the person
+
+Set ``KeychainItem/requiresUserPresence`` for a secret whose use should be a deliberate act, such
+as a signing key or an administrator's token. Each read then shows the system prompt (Touch ID,
+Face ID, Optic ID, or the device passcode or account password) with the item's
+``KeychainItem/presencePrompt``, which is required: a prompt that doesn't say why is one the
+person can't judge.
+
+```swift
+import SwiftKeychain
+
+let item = KeychainItem(
+    service: "com.example.signer",
+    account: "release-key",
+    accessibility: .whenUnlockedThisDeviceOnly,
+    requiresUserPresence: true,
+    presencePrompt: "Sign the release"
+)
+print(item.requiresUserPresence)
+```
+
+Reading may now throw two more errors. ``KeychainError/cancelled`` means the person dismissed
+the prompt; ``KeychainError/authenticationFailed`` means they tried and couldn't. Neither means
+the item is gone, so neither should be answered with a new sign-in, and a dismissed prompt
+shouldn't reappear at once.
+
+Which calls ask: reading does; replacing an existing item may; adding, deleting and listing
+accounts don't. Such items need the data-protection keychain, so on macOS
+`SystemKeychain(dataProtection: false)` refuses them rather than storing them without the
+protection asked for. They don't synchronize.
+
+It stops silent reads, not persuasion: a person who approves a prompt they didn't expect has
+approved it. To test what an app does when the person says no, give ``InMemoryKeychain`` a
+`presence` closure that answers ``InMemoryKeychain/Presence/cancelled``.
+
 ## Sharing between apps
 
 Set ``KeychainItem/accessGroup`` to a keychain access group the apps share through their
@@ -67,3 +102,15 @@ never stored over another, so when two processes start at once and both create o
 gets the first's key. Use it to seal a file
 of credentials, such as swift-oauth's `EncryptedFileClientStorage`, when one item per credential
 doesn't suit.
+
+SwiftIdentity's server keys take its bytes as they are (SwiftIdentity 0.8.0 or later), so a
+pepper or a one-time-code sealing key can live here instead of in an owner-only file:
+
+```
+let item = KeychainItem(service: "com.example.household", account: "pepper")
+let pepper = try Pepper(data: KeychainKey.loadOrCreate(item, using: SystemKeychain()))
+```
+
+That keeps the key encrypted at rest under keys the Secure Enclave guards, and out of backups
+while the item is device-only. It is still in memory while it's used, so it isn't the
+"hardware-protected area" NIST SP 800-63B-4 §3.1.1.2 asks for either.

@@ -34,10 +34,10 @@ Sources/SwiftKeychain/
 | Type | Role |
 |---|---|
 | `KeychainAccess` | Read, store (add, then update), add only if absent, delete, list accounts |
-| `KeychainItem` | Service, account, accessibility, synchronizable, access group |
-| `KeychainError` | `locked`, `missingEntitlement`, `malformed`, `status` |
+| `KeychainItem` | Service, account, accessibility, synchronizable, access group, user presence and its prompt |
+| `KeychainError` | `locked`, `missingEntitlement`, `malformed`, `status`, `cancelled`, `authenticationFailed` |
 | `SystemKeychain` | The Apple Keychain |
-| `InMemoryKeychain` | The same rules, in memory |
+| `InMemoryKeychain` | The same rules, in memory; prompts answered by a closure |
 | `KeychainKey` | A 32-byte key, read or created; a key another process created first wins |
 | `KeychainTokenCache` | `TokenCache` (trait `CLIAuth`), login keychain by default |
 | `KeychainClientStorage` | `OAuthClientStorage` (trait `OAuth`), one device-only item per connection |
@@ -62,6 +62,9 @@ Sources/SwiftKeychain/
 - [x] Gate and CI build with traits (quality-gate-swift #63, `traits: [OAuth, CLIAuth]` in `.quality-gate.yml`)
 - [x] 0.1.0 released 2026-10-27, CI on `main` green
 - [x] 0.1.1: `KeychainAccess.add(_:as:)`; `KeychainKey.loadOrCreate` no longer replaces a key another process created first
+- [x] 0.2.0: user presence (`SecAccessControl`, `LAContext` prompt), `cancelled` and `authenticationFailed`,
+      `InMemoryKeychain(presence:)`; SwiftIdentity 0.8.0's keys from bytes documented
+- [x] Moved onto 0.1.1 (PRs open 2026-10-28): SwiftPushInbox; SwiftMCPClient and FleetWatch in progress
 
 ## Roadmap
 
@@ -72,11 +75,17 @@ Sources/SwiftKeychain/
 - [x] Atomic `add`, and `KeychainKey` creation that survives two processes racing. Not on the
       plan: found while moving SwiftPushInbox onto the package.
 
+### 0.2.0 (2026-10-28)
+- [x] ~~`SecAccessControl` with user presence for step-up.~~ Shipped as a `Bool` and a required prompt, not an
+      access-control enum: biometry-only would lock a person out when they re-enrol a finger (proposal §13).
+- [x] ~~SwiftIdentity `SealingKey(data:)` and `Pepper(data:)`, so its server keys can come from here.~~ Shipped in
+      SwiftIdentity 0.8.0; this package documents the composition rather than depending on SwiftIdentity.
+
 ### Later
-- `SecAccessControl` with user presence for step-up.
-- SwiftIdentity `SealingKey(data:)` and `Pepper(data:)`, so its server keys can come from here.
-- Move SwiftPushInbox, SwiftMCPClient and FleetWatch onto this package.
+- ~~Move SwiftPushInbox, SwiftMCPClient and FleetWatch onto this package.~~ Under way 2026-10-28 (PRs in each repo).
+- A `label` attribute, if a migration shows Keychain Access needs a name.
+- One `LAContext` across a burst of reads, so it prompts once.
 
 ---
 
-**Last Updated:** 2026-10-28 (0.1.1: atomic `add` and the key-creation race; type table and roadmap reconciled. Earlier, 2026-10-27, 0.1.0 released: the layout and type table reconciled with what shipped; the proposal moved to completed. Earlier the same day: the core, `KeychainKey` and both conformances built, and the gate taught traits.)
+**Last Updated:** 2026-10-28 (0.2.0: user presence; type table, status and roadmap reconciled. Earlier the same day, 0.1.1: atomic `add` and the key-creation race; type table and roadmap reconciled. Earlier, 2026-10-27, 0.1.0 released: the layout and type table reconciled with what shipped; the proposal moved to completed. Earlier the same day: the core, `KeychainKey` and both conformances built, and the gate taught traits.)
