@@ -64,6 +64,7 @@ public struct SystemKeychain: KeychainAccess {
     public func store(_ data: Data, as item: KeychainItem) throws(KeychainError) {
         guard try !add(data, as: item) else { return }
         var changes = try protection(of: item)
+        changes.merge(labelAttributes(of: item)) { _, new in new }
         changes[kSecValueData as String] = data
         var query = identity(of: item)
         if item.requiresUserPresence {
@@ -138,6 +139,7 @@ public struct SystemKeychain: KeychainAccess {
         try checkSupported(item)
         var attributes = identity(of: item)
         attributes.merge(try protection(of: item)) { _, new in new }
+        attributes.merge(labelAttributes(of: item)) { _, new in new }
         attributes[kSecValueData as String] = data
         return attributes
     }
@@ -166,6 +168,13 @@ public struct SystemKeychain: KeychainAccess {
             throw .malformed("the system could not create access control for user presence")
         }
         return [kSecAttrAccessControl as String: control]
+    }
+
+    /// What describes the item without picking it out: its label, when it has one. Sent on add
+    /// and update, never in a query that finds an item.
+    private func labelAttributes(of item: KeychainItem) -> [String: Any] {
+        guard let label = item.label else { return [:] }
+        return [kSecAttrLabel as String: label]
     }
 
     /// Whether this platform can ask for the person: not tvOS or watchOS.

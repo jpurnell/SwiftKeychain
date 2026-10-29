@@ -132,6 +132,11 @@ public struct KeychainItem: Sendable, Hashable {
     public var requiresUserPresence: Bool
     /// What the prompt tells the person the read is for, such as "Unlock the signing key".
     public var presencePrompt: String?
+    /// The name Keychain Access shows, such as "FleetWatch sign-in". Defaults to `nil`, which shows
+    /// the service. It describes the item and never picks it out: an item stored without a label is
+    /// found by one that has one, and storing with a new label renames the item. `nil` leaves any
+    /// label already stored.
+    public var label: String?
 
     /// Creates an item description.
     /// - Parameters:
@@ -142,6 +147,7 @@ public struct KeychainItem: Sendable, Hashable {
     ///   - accessGroup: The shared access group, if any.
     ///   - requiresUserPresence: Whether each read asks for the person.
     ///   - presencePrompt: What the prompt says the read is for; required with `requiresUserPresence`.
+    ///   - label: The name Keychain Access shows, if any; not part of the item's identity.
     public init(
         service: String,
         account: String,
@@ -149,7 +155,8 @@ public struct KeychainItem: Sendable, Hashable {
         synchronizable: Bool = false,
         accessGroup: String? = nil,
         requiresUserPresence: Bool = false,
-        presencePrompt: String? = nil
+        presencePrompt: String? = nil,
+        label: String? = nil
     ) {
         self.service = service
         self.account = account
@@ -158,6 +165,7 @@ public struct KeychainItem: Sendable, Hashable {
         self.accessGroup = accessGroup
         self.requiresUserPresence = requiresUserPresence
         self.presencePrompt = presencePrompt
+        self.label = label
     }
 
     /// Refuses a combination no store can honour, saying why where the Keychain would answer
