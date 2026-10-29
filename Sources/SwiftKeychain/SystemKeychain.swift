@@ -26,6 +26,9 @@ import os
 /// An item that asks for the person (``KeychainItem/requiresUserPresence``) is stored under access
 /// control and needs the data-protection keychain. Reading it shows the system prompt with the
 /// item's ``KeychainItem/presencePrompt``; replacing it may too; adding, deleting and listing don't.
+///
+/// By default each of those reads asks. With `presenceReuse`, one confirmation stands for the reads
+/// and replaces after it, for a bounded time; see ``init(dataProtection:presenceReuse:)``.
 public struct SystemKeychain: KeychainAccess {
 
     private static let logger = Logger(subsystem: "com.swiftkeychain", category: "SystemKeychain")
@@ -33,11 +36,37 @@ public struct SystemKeychain: KeychainAccess {
     /// Whether items go to the data-protection keychain. Ignored outside macOS, where there is no other.
     public let dataProtection: Bool
 
+    /// The longest one confirmation can stand for the prompts after it: five minutes, the ceiling
+    /// Apple sets for reusing a Touch ID unlock.
+    public static let maximumPresenceReuse: Duration = .seconds(300)
+
+    /// The confirmed context a burst of reads shares, and until when. Copies share it.
+    let session: PresenceSession
+
+    /// How long one confirmation stands for the prompts after it, as clamped; `nil` means each read
+    /// asks. Always `nil` on tvOS and watchOS, which can't ask for the person.
+    public var presenceReuse: Duration? { session.length }
+
     /// Creates an accessor.
-    /// - Parameter dataProtection: On macOS, use the data-protection keychain (`true`, for
-    ///   signed apps) or the login keychain (`false`, for command-line tools).
-    public init(dataProtection: Bool = true) {
+    /// - Parameters:
+    ///   - dataProtection: On macOS, use the data-protection keychain (`true`, for signed apps) or
+    ///     the login keychain (`false`, for command-line tools).
+    ///   - presenceReuse: How long the person's confirmation of one read of an item that asks for
+    ///     them stands for the reads and replaces after it, so a burst asks once. `nil`, the default,
+    ///     asks on every read. The window opens when they confirm and doesn't slide; it is capped at
+    ///     ``maximumPresenceReuse``, and zero or less means none. Only the first read's prompt is
+    ///     shown, so use it where the reads in a burst serve one act. A cancelled or failed prompt,
+    ///     or any other error from such a call, ends it; so does ``endPresenceReuse()``. Copies of
+    ///     this value share one window. Does nothing on tvOS and watchOS.
+    public init(dataProtection: Bool = true, presenceReuse: Duration? = nil) {
         self.dataProtection = dataProtection
+        self.session = PresenceSession(length: Self.canAskForPerson ? presenceReuse : nil)
+    }
+
+    /// Ends the window ``presenceReuse`` opened, so the next read asks, as at sign-out or
+    /// "lock now". Does nothing if there is none.
+    public func endPresenceReuse() {
+        session.end()
     }
 
     /// The data stored as `item`.
@@ -45,15 +74,17 @@ public struct SystemKeychain: KeychainAccess {
     /// - Returns: The data, or `nil` if there is no such item.
     /// - Throws: ``KeychainError``.
     public func data(for item: KeychainItem) throws(KeychainError) -> Data? {
-        let query = try readQuery(for: item)
-        var result: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        if status == errSecItemNotFound { return nil }
-        try Self.check(status, doing: "read")
-        guard let data = result as? Data else {
-            throw .malformed("the item's data was not returned as bytes")
+        try checkSupported(item)
+        return try authenticating(item) { context in
+            var result: CFTypeRef?
+            let status = SecItemCopyMatching(readQuery(for: item, context: context) as CFDictionary, &result)
+            if status == errSecItemNotFound { return .notAsked(nil) }
+            if let failure = Self.failure(status, doing: "read") { return .refused(failure) }
+            guard let data = result as? Data else {
+                return .refused(.malformed("the item's data was not returned as bytes"))
+            }
+            return .confirmed(data)
         }
-        return data
     }
 
     /// Stores `data` as `item`, replacing whatever was there.
@@ -63,14 +94,34 @@ public struct SystemKeychain: KeychainAccess {
     /// - Throws: ``KeychainError``.
     public func store(_ data: Data, as item: KeychainItem) throws(KeychainError) {
         guard try !add(data, as: item) else { return }
-        var changes = try protection(of: item)
-        changes.merge(labelAttributes(of: item)) { _, new in new }
-        changes[kSecValueData as String] = data
-        var query = identity(of: item)
-        if item.requiresUserPresence {
-            query[kSecUseAuthenticationContext as String] = Self.context(prompt: item.prompt)
+        try authenticating(item) { context -> PresenceOutcome<Void> in
+            var changes: [String: Any]
+            do throws(KeychainError) {
+                changes = try protection(of: item)
+            } catch {
+                return .refused(error)
+            }
+            changes.merge(labelAttributes(of: item)) { _, new in new }
+            changes[kSecValueData as String] = data
+            var query = identity(of: item)
+            if let context {
+                query[kSecUseAuthenticationContext as String] = context
+            }
+            let status = SecItemUpdate(query as CFDictionary, changes as CFDictionary)
+            if let failure = Self.failure(status, doing: "update") { return .refused(failure) }
+            return .confirmed(())
         }
-        try Self.check(SecItemUpdate(query as CFDictionary, changes as CFDictionary), doing: "update")
+    }
+
+    /// Runs a call that may ask for the person: with no context for an item that doesn't ask; with
+    /// a new one carrying the prompt when there's no reuse; through the session when there is.
+    private func authenticating<Value: Sendable>(
+        _ item: KeychainItem,
+        _ call: @Sendable (AnyObject?) -> PresenceOutcome<Value>
+    ) throws(KeychainError) -> Value {
+        guard item.requiresUserPresence else { return try call(nil).value() }
+        guard session.length != nil else { return try call(Self.context(prompt: item.prompt)).value() }
+        return try session.asking(prompt: item.prompt, call)
     }
 
     /// Stores `data` as `item` only if nothing is stored there yet: one add, which the Keychain
@@ -144,15 +195,20 @@ public struct SystemKeychain: KeychainAccess {
         return attributes
     }
 
-    /// What a read of `item` sends: for an item that asks for the person, with a context that
-    /// carries the prompt.
+    /// What a read of `item` sends without reuse: for an item that asks for the person, with a new
+    /// context that carries the prompt.
     func readQuery(for item: KeychainItem) throws(KeychainError) -> [String: Any] {
         try checkSupported(item)
+        return readQuery(for: item, context: item.requiresUserPresence ? Self.context(prompt: item.prompt) : nil)
+    }
+
+    /// What a read of `item` sends, with `context`, if any, as its authentication context.
+    func readQuery(for item: KeychainItem, context: AnyObject?) -> [String: Any] {
         var query = identity(of: item)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
-        if item.requiresUserPresence {
-            query[kSecUseAuthenticationContext as String] = Self.context(prompt: item.prompt)
+        if let context {
+            query[kSecUseAuthenticationContext as String] = context
         }
         return query
     }
@@ -188,7 +244,7 @@ public struct SystemKeychain: KeychainAccess {
 
     /// A context whose prompt says what the read is for; `nil` where the platform can't ask,
     /// which ``checkSupported(_:)`` has already refused.
-    private static func context(prompt: String) -> AnyObject? {
+    static func context(prompt: String) -> AnyObject? {
         #if canImport(LocalAuthentication) && !os(watchOS)
         let context = LAContext()
         context.localizedReason = prompt
@@ -241,7 +297,12 @@ public struct SystemKeychain: KeychainAccess {
 
     /// Turns a status other than success into the error that names it, and logs it.
     private static func check(_ status: OSStatus, doing operation: String) throws(KeychainError) {
-        guard status != errSecSuccess else { return }
+        if let failure = failure(status, doing: operation) { throw failure }
+    }
+
+    /// The error a status other than success names, logged; `nil` for success.
+    private static func failure(_ status: OSStatus, doing operation: String) -> KeychainError? {
+        guard status != errSecSuccess else { return nil }
         let failure = error(for: status)
         switch failure {
         case .locked, .cancelled:
@@ -249,7 +310,7 @@ public struct SystemKeychain: KeychainAccess {
         default:
             logger.error("keychain \(operation, privacy: .public) failed: \(String(describing: failure), privacy: .public)")
         }
-        throw failure
+        return failure
     }
 
     /// The error a status other than success names.

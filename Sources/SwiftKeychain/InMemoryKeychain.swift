@@ -41,20 +41,63 @@ public final class InMemoryKeychain: KeychainAccess {
 
     private let items = OSAllocatedUnfairLock(initialState: [Key: Data]())
     private let presence: @Sendable (String) -> Presence
+    private let window: OSAllocatedUnfairLock<ReuseWindow>
+    private let now: @Sendable () -> ContinuousClock.Instant
+
+    /// How long one confirmation stands for the prompts after it, as clamped; `nil` means each
+    /// read asks.
+    public let presenceReuse: Duration?
 
     /// Creates an empty store.
-    /// - Parameter presence: Answers each prompt for an item that asks for the person, as the
-    ///   Keychain would ask on a read or a replace; called with the item's prompt. Grants by
-    ///   default. Pass one that cancels to test what an app does when the person says no.
-    public init(presence: @escaping @Sendable (String) -> Presence = { _ in .granted }) {
+    /// - Parameters:
+    ///   - presence: Answers each prompt for an item that asks for the person, as the Keychain would
+    ///     ask on a read or a replace; called with the item's prompt. Grants by default. Pass one
+    ///     that cancels to test what an app does when the person says no.
+    ///   - presenceReuse: How long a granted prompt stands for the reads and replaces after it, under
+    ///     ``SystemKeychain/init(dataProtection:presenceReuse:)``'s rules: `nil` (the default) asks
+    ///     every time; the window opens when the person confirms, doesn't slide, is capped at
+    ///     ``SystemKeychain/maximumPresenceReuse``, and ends on a refusal or
+    ///     ``endPresenceReuse()``.
+    ///   - now: The time the window is measured by. The continuous clock's by default; pass one a
+    ///     test moves by hand to step past the window without waiting.
+    public init(
+        presence: @escaping @Sendable (String) -> Presence = { _ in .granted },
+        presenceReuse: Duration? = nil,
+        now: @escaping @Sendable () -> ContinuousClock.Instant = { .now }
+    ) {
+        let window = ReuseWindow(presenceReuse)
         self.presence = presence
+        self.presenceReuse = window.length
+        self.window = OSAllocatedUnfairLock(initialState: window)
+        self.now = now
     }
 
-    /// Asks for the person, if `item` needs them.
+    /// Ends the window ``presenceReuse`` opened, so the next read asks.
+    public func endPresenceReuse() {
+        window.withLock { $0.close() }
+    }
+
+    /// Asks for the person, if `item` needs them and no confirmation still stands. With reuse, the
+    /// check and the prompt share one lock, as in ``SystemKeychain``, so a concurrent burst asks once.
     private func confirm(_ item: KeychainItem) throws(KeychainError) {
         guard item.requiresUserPresence else { return }
-        switch presence(item.prompt) {
-        case .granted: return
+        let answer: Presence?
+        if presenceReuse == nil {
+            answer = presence(item.prompt)
+        } else {
+            answer = window.withLock { window in
+                guard !window.isOpen(at: now()) else { return nil }
+                let answer = presence(item.prompt)
+                if answer == .granted {
+                    window.open(at: now())
+                } else {
+                    window.close()
+                }
+                return answer
+            }
+        }
+        switch answer {
+        case nil, .granted: return
         case .cancelled: throw .cancelled
         case .failed: throw .authenticationFailed
         }

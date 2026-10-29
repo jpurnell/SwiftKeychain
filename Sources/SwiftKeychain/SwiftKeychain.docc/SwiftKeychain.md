@@ -13,7 +13,7 @@ throws ``KeychainError/locked`` rather than reading as "nothing stored", so an a
 it with a fresh sign-in that overwrites a good credential.
 
 An unsigned command-line tool can't use the data-protection keychain; it passes
-`dataProtection: false` to ``SystemKeychain/init(dataProtection:)`` and uses the login keychain.
+`dataProtection: false` to ``SystemKeychain/init(dataProtection:presenceReuse:)`` and uses the login keychain.
 
 ## Topics
 
