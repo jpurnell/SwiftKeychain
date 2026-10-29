@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-28
+
+### Added
+
+- `KeychainItem.label`: the name Keychain Access shows. `SystemKeychain` sends it as
+  `kSecAttrLabel` on add and in an update's changes, and never in a query that finds an item, so
+  items stored without one are still found and a new label renames rather than duplicates. `nil`
+  (the default) leaves any stored label. Asked for by FleetWatch, whose "FleetWatch sign-in" and
+  "FleetWatch Reporter" names were lost moving onto 0.1.1.
+- One prompt for a burst of reads: `SystemKeychain(dataProtection:presenceReuse:)`. Off by
+  default (each read asks, as in 0.2.0). With a window, the `LAContext` the first read
+  authenticates is passed to the reads and replaces after it, which the Keychain doesn't ask
+  again for. The window opens when the person confirms, doesn't slide, is capped at
+  `SystemKeychain.maximumPresenceReuse` (five minutes), and ends on any refusal or
+  `endPresenceReuse()`. Only the first read's prompt is shown. The context never leaves a lock,
+  and each presence call runs inside it, so a concurrent burst asks once. Does nothing on tvOS
+  and watchOS (design: `project/plans/completed/2026-10-28_OnePrompt03.md`).
+- `InMemoryKeychain(presence:presenceReuse:now:)` and `endPresenceReuse()`: the same rule in
+  memory, with a clock an app's tests can move by hand.
+- The guide gained "Naming an item" and, under "Asking for the person", "One prompt for a burst
+  of reads".
+
+### Not verified
+
+- That the Keychain really skips the second prompt. The test runner is unsigned, so it can't
+  store an item that asks for the person; the evidence is Apple's `SecItem.h`. A signed app must
+  confirm it.
+
 ## [0.2.0] - 2026-10-28
 
 ### Added
@@ -73,7 +101,8 @@ The first release. Closes Stack Map gap #7, "Keychain credential store".
 - Traits `OAuth` and `CLIAuth`, off by default, for the swift-oauth and swift-cli-kit-auth
   conformances.
 
-[Unreleased]: https://github.com/jpurnell/SwiftKeychain/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/jpurnell/SwiftKeychain/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/jpurnell/SwiftKeychain/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/jpurnell/SwiftKeychain/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/jpurnell/SwiftKeychain/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/jpurnell/SwiftKeychain/releases/tag/v0.1.0

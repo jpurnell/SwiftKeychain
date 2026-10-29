@@ -4,12 +4,13 @@ Tokens and keys in the Apple Keychain, for apps built on
 [swift-oauth](https://github.com/jpurnell/swift-oauth) and
 [swift-cli-kit-auth](https://github.com/jpurnell/swift-cli-kit-auth).
 
-**Status: 0.2.0.** The core store, `KeychainKey`, items that ask for the person (Touch ID, Face ID
-or a password) before they are read, and the swift-oauth and swift-cli-kit-auth conformances.
+**Status: 0.3.0.** The core store, `KeychainKey`, items that ask for the person (Touch ID, Face ID
+or a password) before they are read, with an opt-in window so a burst of reads asks once, labels
+for Keychain Access, and the swift-oauth and swift-cli-kit-auth conformances.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/jpurnell/SwiftKeychain.git", from: "0.1.0"),
+    .package(url: "https://github.com/jpurnell/SwiftKeychain.git", from: "0.3.0"),
 ]
 ```
 
@@ -20,6 +21,9 @@ dependencies: [
 - **`InMemoryKeychain`** keeps the same rules in memory, for your tests.
 - **A locked device throws `.locked`.** It never reads as "nothing stored", so an app can't
   answer it with a fresh sign-in that overwrites a good credential.
+- **Items that ask for the person** show the system prompt on each read; `presenceReuse` lets
+  one confirmation stand for a burst of reads, for at most five minutes.
+- **A label** names an item in Keychain Access without changing which item it is.
 - **Items stay on the device by default** (after first unlock, not synchronized). An item can't
   be both device-only and synchronized; that is refused, with a reason.
 
@@ -39,7 +43,7 @@ The conformances are behind traits, off by default, so an app that wants only th
 nothing else:
 
 ```swift
-.package(url: "https://github.com/jpurnell/SwiftKeychain.git", from: "0.1.0", traits: ["OAuth"])
+.package(url: "https://github.com/jpurnell/SwiftKeychain.git", from: "0.3.0", traits: ["OAuth"])
 ```
 
 - **`OAuth`**: `KeychainClientStorage`, swift-oauth's `OAuthClientStorage`. One item per

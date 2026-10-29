@@ -89,6 +89,67 @@ It stops silent reads, not persuasion: a person who approves a prompt they didn'
 approved it. To test what an app does when the person says no, give ``InMemoryKeychain`` a
 `presence` closure that answers ``InMemoryKeychain/Presence/cancelled``.
 
+### One prompt for a burst of reads
+
+By default every read asks. When one act needs several reads close together, such as reading a
+signing key and then a notarisation token, three prompts for one act teach the person to approve
+prompts without reading them. Give the keychain a reuse window instead:
+
+```swift
+import SwiftKeychain
+
+let signer = SystemKeychain(presenceReuse: .seconds(30))
+print(signer.presenceReuse == .seconds(30))
+```
+
+The first read asks; once the person confirms, the reads and replaces of items that ask for them
+skip the prompt until the window ends. The rules:
+
+- **It is bounded.** The window opens when the person confirms and lasts `presenceReuse` from
+  then. Reads inside it don't extend it. It is capped at
+  ``SystemKeychain/maximumPresenceReuse`` (five minutes); a longer value is clamped, and zero or
+  less means none. ``SystemKeychain/presenceReuse`` reports the window in force.
+- **Only the first prompt is seen.** Later reads in the window show nothing, so their prompts
+  aren't read. Use reuse where the reads in a burst serve one act the first prompt describes.
+- **A refusal ends it.** A cancelled or failed prompt, or any other error from such a read, ends
+  the window; the next read asks again. A read that finds nothing asks nothing and opens nothing.
+- **End it yourself** with ``SystemKeychain/endPresenceReuse()``, at sign-out or "lock now".
+- **Copies share it.** Copies of one `SystemKeychain` value share one window; two made separately
+  have their own.
+- **A concurrent burst asks once.** Presence reads through one keychain take turns: the second
+  waits for the first's answer and reuses it. Reads of other items aren't held up.
+
+Under the hood the first read's `LAContext` is passed to the reads after it; the Keychain doesn't
+ask again for a context that is already authenticated. On tvOS and watchOS, which can't ask,
+`presenceReuse` is accepted and does nothing.
+
+``InMemoryKeychain`` keeps the same rules, so an app can test them. Its `now` closure supplies the
+time, so a test can step past the window without waiting:
+
+```swift
+import SwiftKeychain
+
+let testStore = InMemoryKeychain(presence: { _ in .granted }, presenceReuse: .seconds(30))
+print(testStore.presenceReuse == .seconds(30))
+```
+
+## Naming an item
+
+Keychain Access lists an item by its label, or by its service when it has none. Set
+``KeychainItem/label`` to give it a name a person will recognise:
+
+```swift
+import SwiftKeychain
+
+let signIn = KeychainItem(service: "com.example.fleetwatch", account: "ada", label: "FleetWatch sign-in")
+print(signIn.label ?? "")
+```
+
+A label describes an item; it never picks one out. Reading, replacing and deleting find the item
+by its service, account, access group and whether it synchronizes, so an item stored without a
+label is found by one that has one, and storing again with a new label renames the item rather
+than adding a second. Storing with no label leaves the one already there.
+
 ## Sharing between apps
 
 Set ``KeychainItem/accessGroup`` to a keychain access group the apps share through their
