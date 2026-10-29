@@ -99,6 +99,12 @@ Sources/SwiftKeychain/
       store (`presenceReuse`, capped at five minutes, not sliding), not a scoped value per burst, so the
       adapters get it unchanged (proposal `2026-10-28_OnePrompt03.md` §13).
 
+### 1.0.0-beta.1 (next)
+- [ ] Gate (the user, 2026-10-28): FleetWatch on 0.3.0 (PR #24, the app and the Reporter) is
+      notarized and passes its real checks: the app stays signed in, an enrolled Mac's Reporter
+      keeps reporting without re-enrolling, labels show in Keychain Access. Then 1.0.0-beta.1, with
+      the public API reviewed for what a 1.0 commits to.
+
 ### Later
 - Move SwiftPushInbox, SwiftMCPClient and FleetWatch onto this package. Under way 2026-10-28: **PRs open,
   not merged** (SwiftPushInbox #1, SwiftMCPClient #4, FleetWatch #24 incl. the Reporter now on macOS 14).
@@ -112,4 +118,4 @@ Sources/SwiftKeychain/
 
 ---
 
-**Last Updated:** 2026-10-28 (0.3.0: label and presence reuse; type table, layout, status and roadmap reconciled; the consumer migrations un-struck and marked as open PRs, not merged; the signed-app prompt check added; the package split recorded as declined. Earlier the same day, 0.2.0: user presence; type table, status and roadmap reconciled. Earlier the same day, 0.1.1: atomic `add` and the key-creation race; type table and roadmap reconciled. Earlier, 2026-10-27, 0.1.0 released: the layout and type table reconciled with what shipped; the proposal moved to completed. Earlier the same day: the core, `KeychainKey` and both conformances built, and the gate taught traits.)
+**Last Updated:** 2026-10-28 (1.0.0-beta.1 planned, gated on FleetWatch's notarized checks. Earlier the same day, 0.3.0: label and presence reuse; type table, layout, status and roadmap reconciled; the consumer migrations un-struck and marked as open PRs, not merged; the signed-app prompt check added; the package split recorded as declined. Earlier the same day, 0.2.0: user presence; type table, status and roadmap reconciled. Earlier the same day, 0.1.1: atomic `add` and the key-creation race; type table and roadmap reconciled. Earlier, 2026-10-27, 0.1.0 released: the layout and type table reconciled with what shipped; the proposal moved to completed. Earlier the same day: the core, `KeychainKey` and both conformances built, and the gate taught traits.)
